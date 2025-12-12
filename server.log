@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/ayyamaghali/connect4_AI/app.py", line 7, in <module>
+    from ai import (
+ImportError: cannot import name 'get_drop_row' from 'ai' (/Users/ayyamaghali/connect4_AI/ai/__init__.py)
