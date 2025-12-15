@@ -15,11 +15,43 @@ let currentPlayer = 1; // 1 = Red, 2 = Yellow
 let gameOver = false;
 let winner = null;
 let isProcessingMove = false; // Prevent multiple simultaneous moves
-let gameMode = 'human'; // 'human' or 'ai'
-let aiPlayer = 2; // AI plays as player 2 (Yellow)
+let gameMode = 'human'; // 'human', 'ai', or 'ai_vs_ai'
+let aiPlayer = 2; // AI plays as player 2 (Yellow) in human vs AI
 let aiDepth = 5; // Search depth for minimax
-let aiAlgorithm = 'minimax_ab'; // 'minimax', 'minimax_ab', 'iterative'
+let aiAlgorithm = 'minimax_ab'; // 'minimax', 'minimax_ab', 'iterative', 'random'
+let ai1Depth = 5;
+let ai2Depth = 5;
+let ai1Algorithm = 'minimax_ab';
+let ai2Algorithm = 'minimax_ab';
+let randomizeFirstPlayer = true;
+const AI_MOVE_DELAY_MS = 400; // small delay so UI updates between AI turns
 const API_URL = 'http://localhost:5001/api';
+
+function isAITurn() {
+    if (gameMode === 'ai') {
+        return currentPlayer === aiPlayer;
+    }
+    if (gameMode === 'ai_vs_ai') {
+        return true;
+    }
+    return false;
+}
+
+function scheduleAIMove() {
+    if (!gameOver && isAITurn() && !isProcessingMove) {
+        setTimeout(() => makeAIMove(), AI_MOVE_DELAY_MS);
+    }
+}
+
+function currentAISettings() {
+    if (gameMode === 'ai_vs_ai') {
+        if (currentPlayer === 1) {
+            return { algorithm: ai1Algorithm, depth: ai1Depth };
+        }
+        return { algorithm: ai2Algorithm, depth: ai2Depth };
+    }
+    return { algorithm: aiAlgorithm, depth: aiDepth };
+}
 
 // Canvas setup
 const canvas = document.getElementById('gameCanvas');
@@ -34,17 +66,19 @@ function initBoard() {
             board[row][col] = 0; // 0 = empty, 1 = red, 2 = yellow
         }
     }
-    currentPlayer = 1;
+    // Randomize starting player for AI vs AI if enabled
+    if (gameMode === 'ai_vs_ai' && randomizeFirstPlayer) {
+        currentPlayer = Math.random() < 0.5 ? 1 : 2;
+    } else {
+        currentPlayer = 1;
+    }
     gameOver = false;
     winner = null;
     isProcessingMove = false;
     updateUI();
     drawBoard();
     
-    // If AI is enabled and it's AI's turn, make AI move
-    if (gameMode === 'ai' && currentPlayer === aiPlayer && !gameOver) {
-        setTimeout(() => makeAIMove(), 500);
-    }
+    scheduleAIMove();
 }
 
 // Draw the game board
@@ -143,11 +177,8 @@ function dropPiece(col) {
             updateUI();
             isProcessingMove = false;
             
-            // If AI mode and it's AI's turn, make AI move
-            // (This will only trigger after human moves, not after AI moves)
-            if (gameMode === 'ai' && currentPlayer === aiPlayer && !gameOver) {
-                setTimeout(() => makeAIMove(), 500);
-            }
+            // Trigger AI move(s) when appropriate (covers human vs AI and AI vs AI)
+            scheduleAIMove();
             
             return true;
         }
@@ -229,15 +260,17 @@ function updateUI() {
         currentPlayerDiv.style.display = 'inline-block';
         winnerMessageDiv.style.display = 'none';
         
+        const isAIThinking = isAITurn() && isProcessingMove;
         if (currentPlayer === 1) {
-            currentPlayerDiv.textContent = "Player 1's Turn (Red)";
+            currentPlayerDiv.textContent = isAIThinking && gameMode !== 'human'
+                ? "AI 1 is thinking (Red)..."
+                : "Player 1's Turn (Red)";
             currentPlayerDiv.className = 'current-player player-red';
         } else {
-            if (gameMode === 'ai' && currentPlayer === aiPlayer) {
-                currentPlayerDiv.textContent = "AI's Turn (Yellow) - Thinking...";
-            } else {
-                currentPlayerDiv.textContent = "Player 2's Turn (Yellow)";
-            }
+            const yellowLabel = gameMode === 'ai' && currentPlayer === aiPlayer
+                ? "AI's Turn (Yellow)"
+                : (gameMode === 'ai_vs_ai' ? "AI 2's Turn (Yellow)" : "Player 2's Turn (Yellow)");
+            currentPlayerDiv.textContent = isAIThinking ? `${yellowLabel} - Thinking...` : yellowLabel;
             currentPlayerDiv.className = 'current-player player-yellow';
         }
     }
@@ -247,7 +280,7 @@ function updateUI() {
 canvas.addEventListener('click', (event) => {
     if (!gameOver && !isProcessingMove) {
         // Don't allow clicks if it's AI's turn
-        if (gameMode === 'ai' && currentPlayer === aiPlayer) {
+        if (isAITurn()) {
             return;
         }
         const col = getColumnFromClick(event);
@@ -302,8 +335,8 @@ canvas.addEventListener('mouseleave', () => {
 
 // Make AI move by calling Python backend
 async function makeAIMove() {
-    if (gameOver || isProcessingMove || currentPlayer !== aiPlayer) {
-        console.log('makeAIMove: Skipping - gameOver:', gameOver, 'isProcessingMove:', isProcessingMove, 'currentPlayer:', currentPlayer, 'aiPlayer:', aiPlayer);
+    if (gameOver || isProcessingMove || !isAITurn()) {
+        console.log('makeAIMove: Skipping - gameOver:', gameOver, 'isProcessingMove:', isProcessingMove, 'currentPlayer:', currentPlayer, 'aiPlayer:', aiPlayer, 'gameMode:', gameMode);
         return;
     }
     
@@ -317,11 +350,12 @@ async function makeAIMove() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
+        const aiConfig = currentAISettings();
         const requestData = {
             board: board,
-            player: aiPlayer,
-            algorithm: aiAlgorithm,
-            depth: aiDepth,
+            player: currentPlayer,
+            algorithm: aiConfig.algorithm,
+            depth: aiConfig.depth,
             time_limit: 5.0
         };
         
@@ -389,7 +423,7 @@ async function makeAIMove() {
 
 // Record game end result
 async function recordGameEnd() {
-    if (gameMode === 'ai' && winner !== null) {
+    if ((gameMode === 'ai' || gameMode === 'ai_vs_ai') && winner !== null) {
         try {
             await fetch(`${API_URL}/game/end`, {
                 method: 'POST',
@@ -448,6 +482,8 @@ document.getElementById('resetButton').addEventListener('click', () => {
 // Handle game mode change
 document.getElementById('gameMode').addEventListener('change', (e) => {
     gameMode = e.target.value;
+    const aiVsAiBlock = document.getElementById('aiVsAiConfig');
+    aiVsAiBlock.style.display = gameMode === 'ai_vs_ai' ? 'block' : 'none';
     initBoard();
 });
 
@@ -459,6 +495,23 @@ document.getElementById('aiDepth').addEventListener('change', (e) => {
 // Handle AI algorithm change
 document.getElementById('aiAlgorithm').addEventListener('change', (e) => {
     aiAlgorithm = e.target.value;
+});
+
+// AI vs AI controls
+document.getElementById('ai1Algorithm').addEventListener('change', (e) => {
+    ai1Algorithm = e.target.value;
+});
+document.getElementById('ai2Algorithm').addEventListener('change', (e) => {
+    ai2Algorithm = e.target.value;
+});
+document.getElementById('ai1Depth').addEventListener('change', (e) => {
+    ai1Depth = parseInt(e.target.value);
+});
+document.getElementById('ai2Depth').addEventListener('change', (e) => {
+    ai2Depth = parseInt(e.target.value);
+});
+document.getElementById('randomStartCheckbox').addEventListener('change', (e) => {
+    randomizeFirstPlayer = e.target.checked;
 });
 
 // Handle metrics button

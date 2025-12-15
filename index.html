@@ -149,6 +149,7 @@
                 <select id="gameMode" style="padding: 8px 15px; font-size: 1em; border-radius: 8px; border: 2px solid #667eea; cursor: pointer;">
                     <option value="human">Human vs Human</option>
                     <option value="ai">Human vs AI</option>
+                    <option value="ai_vs_ai">AI vs AI (autoplay)</option>
                 </select>
             </div>
             <div style="margin-bottom: 15px;">
@@ -157,6 +158,7 @@
                     <option value="minimax">Minimax (No Pruning)</option>
                     <option value="minimax_ab" selected>Minimax with Alpha-Beta</option>
                     <option value="iterative">Iterative Deepening</option>
+                    <option value="random">Random (for testing)</option>
                 </select>
             </div>
             <div style="margin-bottom: 15px;">
@@ -167,6 +169,45 @@
                     <option value="7">Hard (Depth 7)</option>
                     <option value="9">Expert (Depth 9)</option>
                 </select>
+            </div>
+            <div id="aiVsAiConfig" style="margin-bottom: 15px; display: none;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">AI vs AI Settings:</label>
+                <div style="margin-bottom: 10px;">
+                    <strong>Red (Player 1):</strong>
+                    <select id="ai1Algorithm" style="padding: 6px 10px; margin-left: 6px; border-radius: 8px; border: 2px solid #667eea;">
+                        <option value="minimax_ab" selected>Alpha-Beta</option>
+                        <option value="minimax">Minimax</option>
+                        <option value="iterative">Iterative</option>
+                        <option value="random">Random</option>
+                    </select>
+                    <select id="ai1Depth" style="padding: 6px 10px; margin-left: 6px; border-radius: 8px; border: 2px solid #667eea;">
+                        <option value="3">Depth 3</option>
+                        <option value="5" selected>Depth 5</option>
+                        <option value="7">Depth 7</option>
+                        <option value="9">Depth 9</option>
+                    </select>
+                </div>
+                <div>
+                    <strong>Yellow (Player 2):</strong>
+                    <select id="ai2Algorithm" style="padding: 6px 10px; margin-left: 6px; border-radius: 8px; border: 2px solid #667eea;">
+                        <option value="minimax_ab" selected>Alpha-Beta</option>
+                        <option value="minimax">Minimax</option>
+                        <option value="iterative">Iterative</option>
+                        <option value="random">Random</option>
+                    </select>
+                    <select id="ai2Depth" style="padding: 6px 10px; margin-left: 6px; border-radius: 8px; border: 2px solid #667eea;">
+                        <option value="3">Depth 3</option>
+                        <option value="5" selected>Depth 5</option>
+                        <option value="7">Depth 7</option>
+                        <option value="9">Depth 9</option>
+                    </select>
+                </div>
+                <div style="margin-top: 8px; text-align: left;">
+                    <label style="color: #333; font-weight: 600;">
+                        <input type="checkbox" id="randomStartCheckbox" checked style="margin-right: 6px;">
+                        Randomize first player each new game
+                    </label>
+                </div>
             </div>
             <div style="margin-bottom: 15px;">
                 <button id="metricsButton" style="margin-right: 10px;">View Metrics</button>

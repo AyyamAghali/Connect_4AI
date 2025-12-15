@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import time
+import random
 from ai import (
     minimax_without_ab,
     minimax_with_ab,
@@ -48,11 +49,12 @@ def get_move():
     data = request.json
     board = data.get('board')
     player = data.get('player', 2)  # AI is player 2 by default
-    algorithm = data.get('algorithm', 'minimax_ab')  # 'minimax', 'minimax_ab', 'iterative'
+    algorithm = data.get('algorithm', 'minimax_ab')  # 'minimax', 'minimax_ab', 'iterative', 'random'
     depth = data.get('depth', 5)
     time_limit = data.get('time_limit', 5.0)
     
-    if not board:
+    # Accept an empty board (new game) but reject missing payload
+    if board is None:
         return jsonify({'error': 'Board is required'}), 400
     
     start_time = time.time()
@@ -113,7 +115,11 @@ def get_move():
                 })
         
         # Run the selected algorithm
-        if algorithm == 'minimax':
+        if algorithm == 'random':
+            best_move = random.choice(valid_moves)
+            value = 0
+            stats.nodes_expanded = 1
+        elif algorithm == 'minimax':
             value, best_move = minimax_without_ab(board, depth, True, player, stats)
         elif algorithm == 'minimax_ab':
             value, best_move = minimax_with_ab(
