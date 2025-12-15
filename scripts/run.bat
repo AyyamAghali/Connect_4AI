@@ -1,6 +1,9 @@
 @echo off
 REM Connect 4 AI - Startup Script for Windows
 
+REM Change to project root directory
+cd /d "%~dp0\.."
+
 echo ==========================================
 echo   Connect 4 AI Game - Starting Server
 echo ==========================================
@@ -42,7 +45,7 @@ if errorlevel 1 (
 echo.
 echo Starting Flask server...
 echo Server will be available at: http://localhost:5001
-echo Open index.html in your browser to play!
+echo Open http://localhost:5001 in your browser to play!
 echo.
 echo Press Ctrl+C to stop the server
 echo ==========================================

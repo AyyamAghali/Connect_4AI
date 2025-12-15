@@ -5,10 +5,13 @@ import time
 from .minimax import minimax_with_ab, MinimaxStats
 from .game_state import get_valid_moves, get_drop_row, copy_board, check_win
 
-def iterative_deepening(board, max_depth, player, time_limit=5.0):
+def iterative_deepening(board, max_depth, player, time_limit=5.0, randomness=0.0):
     """
     Iterative deepening search with time limit.
     Returns (best_move, final_depth, stats)
+    
+    Args:
+        randomness: Probability (0.0-1.0) of making a random move instead of best move
     """
     stats = MinimaxStats()
     start_time = time.time()
@@ -48,7 +51,7 @@ def iterative_deepening(board, max_depth, player, time_limit=5.0):
         
         stats.reset()
         _, best_move = minimax_with_ab(
-            board, depth, float('-inf'), float('inf'), True, player, stats
+            board, depth, float('-inf'), float('inf'), True, player, stats, randomness
         )
         final_depth = depth
         

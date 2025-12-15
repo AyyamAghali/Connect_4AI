@@ -2,6 +2,11 @@
 
 # Connect 4 AI - Startup Script for macOS/Linux
 
+# Change to project root directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 echo "=========================================="
 echo "  Connect 4 AI Game - Starting Server"
 echo "=========================================="
@@ -40,7 +45,7 @@ fi
 echo ""
 echo "Starting Flask server..."
 echo "Server will be available at: http://localhost:5001"
-echo "Open index.html in your browser to play!"
+echo "Open http://localhost:5001 in your browser to play!"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo "=========================================="

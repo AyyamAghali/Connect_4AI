@@ -1,47 +1,55 @@
 # Quick Start Guide
 
-Get the Connect 4 AI game running in 3 simple steps!
+## Setup
 
-## Step 1: Install Python Dependencies
+1. **Create and activate virtual environment** (if not already done):
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+   Or use the setup script:
+   ```bash
+   bash setup_env.sh
+   ```
+
+## Running the Application
+
+### Option 1: Using the run script (recommended)
 ```bash
-pip install -r requirements.txt
-```
-
-(On some systems, use `pip3` instead of `pip`)
-
-## Step 2: Start the Server
-
-```bash
+source venv/bin/activate  # Activate virtual environment first
 python run.py
 ```
 
-(On some systems, use `python3` instead of `python`)
+### Option 2: Direct Flask run
+```bash
+source venv/bin/activate
+python app.py
+```
 
-## Step 3: Play!
+### Option 3: Using the shell script
+```bash
+bash run.sh
+```
 
-Open your browser and go to: **http://localhost:5001**
+The server will start on `http://localhost:5001`
 
-That's it! Enjoy playing Connect 4 against the AI!
+## Running Data Collection
 
----
+To collect game data:
+```bash
+source venv/bin/activate
+python data/data_collection.py
+```
 
-### Troubleshooting
+## Notes
 
-**"Python not found"**
-- Install Python from https://www.python.org/downloads/
-- Make sure Python is added to your system PATH
+- Always activate the virtual environment before running scripts
+- The server runs on port 5001 by default
+- Open `http://localhost:5001` in your browser to play
 
-**"pip not found"**
-- Try `pip3` instead of `pip`
-- On Windows, try `python -m pip install -r requirements.txt`
-
-**"Port 5001 already in use"**
-- Close other programs using port 5001
-- Or edit `app.py` line 210 to use a different port
-
-**"Import errors"**
-- Make sure you're in the project directory
-- Run `pip install -r requirements.txt` again
-
-For more details, see [README.md](README.md)

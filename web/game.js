@@ -21,8 +21,8 @@ let aiDepth = 5; // Search depth for minimax
 let aiAlgorithm = 'minimax_ab'; // 'minimax', 'minimax_ab', 'iterative', 'random'
 let ai1Depth = 5;
 let ai2Depth = 5;
-let ai1Algorithm = 'minimax_ab';
-let ai2Algorithm = 'minimax_ab';
+let ai1Algorithm = 'minimax_ab'; // Only 'minimax', 'minimax_ab', 'iterative' for AI vs AI
+let ai2Algorithm = 'minimax_ab'; // Only 'minimax', 'minimax_ab', 'iterative' for AI vs AI
 let randomizeFirstPlayer = true;
 const AI_MOVE_DELAY_MS = 400; // small delay so UI updates between AI turns
 const API_URL = 'http://localhost:5001/api';
@@ -45,10 +45,14 @@ function scheduleAIMove() {
 
 function currentAISettings() {
     if (gameMode === 'ai_vs_ai') {
+        // Ensure random algorithm is not used in AI vs AI mode (fallback to minimax_ab)
+        let alg1 = ai1Algorithm === 'random' ? 'minimax_ab' : ai1Algorithm;
+        let alg2 = ai2Algorithm === 'random' ? 'minimax_ab' : ai2Algorithm;
+        
         if (currentPlayer === 1) {
-            return { algorithm: ai1Algorithm, depth: ai1Depth };
+            return { algorithm: alg1, depth: ai1Depth };
         }
-        return { algorithm: ai2Algorithm, depth: ai2Depth };
+        return { algorithm: alg2, depth: ai2Depth };
     }
     return { algorithm: aiAlgorithm, depth: aiDepth };
 }
@@ -237,6 +241,49 @@ function checkWin(row, col) {
     return false;
 }
 
+// Helper functions for UI feedback
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.add('show');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.classList.add('show');
+    setTimeout(() => {
+        errorDiv.classList.remove('show');
+    }, 5000);
+}
+
+function showSuccess(message) {
+    const successDiv = document.getElementById('successMessage');
+    successDiv.textContent = message;
+    successDiv.classList.add('show');
+    setTimeout(() => {
+        successDiv.classList.remove('show');
+    }, 3000);
+}
+
+function addThinkingIndicator(element) {
+    if (!element.querySelector('.thinking-indicator')) {
+        const indicator = document.createElement('span');
+        indicator.className = 'thinking-indicator';
+        indicator.innerHTML = '<span></span><span></span><span></span>';
+        element.appendChild(indicator);
+    }
+}
+
+function removeThinkingIndicator(element) {
+    const indicator = element.querySelector('.thinking-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
 // Update UI elements
 function updateUI() {
     const currentPlayerDiv = document.getElementById('currentPlayer');
@@ -245,9 +292,10 @@ function updateUI() {
     if (gameOver) {
         currentPlayerDiv.style.display = 'none';
         winnerMessageDiv.style.display = 'block';
+        removeThinkingIndicator(currentPlayerDiv);
         
         if (winner === 0) {
-            winnerMessageDiv.textContent = "It's a Draw!";
+            winnerMessageDiv.textContent = "🤝 It's a Draw!";
             winnerMessageDiv.className = 'winner-message winner-draw';
         } else if (winner === 1) {
             winnerMessageDiv.textContent = '🎉 Player 1 (Red) Wins! 🎉';
@@ -262,16 +310,29 @@ function updateUI() {
         
         const isAIThinking = isAITurn() && isProcessingMove;
         if (currentPlayer === 1) {
-            currentPlayerDiv.textContent = isAIThinking && gameMode !== 'human'
-                ? "AI 1 is thinking (Red)..."
-                : "Player 1's Turn (Red)";
-            currentPlayerDiv.className = 'current-player player-red';
+            if (isAIThinking && gameMode !== 'human') {
+                currentPlayerDiv.textContent = "AI 1 is thinking (Red)";
+                currentPlayerDiv.className = 'current-player player-red pulsing';
+                addThinkingIndicator(currentPlayerDiv);
+            } else {
+                currentPlayerDiv.textContent = "Player 1's Turn (Red)";
+                currentPlayerDiv.className = 'current-player player-red';
+                removeThinkingIndicator(currentPlayerDiv);
+            }
         } else {
             const yellowLabel = gameMode === 'ai' && currentPlayer === aiPlayer
                 ? "AI's Turn (Yellow)"
                 : (gameMode === 'ai_vs_ai' ? "AI 2's Turn (Yellow)" : "Player 2's Turn (Yellow)");
-            currentPlayerDiv.textContent = isAIThinking ? `${yellowLabel} - Thinking...` : yellowLabel;
-            currentPlayerDiv.className = 'current-player player-yellow';
+            
+            if (isAIThinking) {
+                currentPlayerDiv.textContent = yellowLabel;
+                currentPlayerDiv.className = 'current-player player-yellow pulsing';
+                addThinkingIndicator(currentPlayerDiv);
+            } else {
+                currentPlayerDiv.textContent = yellowLabel;
+                currentPlayerDiv.className = 'current-player player-yellow';
+                removeThinkingIndicator(currentPlayerDiv);
+            }
         }
     }
 }
@@ -281,12 +342,27 @@ canvas.addEventListener('click', (event) => {
     if (!gameOver && !isProcessingMove) {
         // Don't allow clicks if it's AI's turn
         if (isAITurn()) {
+            showError('Please wait for the AI to make its move.');
             return;
         }
         const col = getColumnFromClick(event);
         if (col >= 0) {
+            // Check if column is full
+            let hasSpace = false;
+            for (let row = 0; row < ROWS; row++) {
+                if (board[row][col] === 0) {
+                    hasSpace = true;
+                    break;
+                }
+            }
+            if (!hasSpace) {
+                showError('This column is full! Choose another column.');
+                return;
+            }
             dropPiece(col);
         }
+    } else if (gameOver) {
+        showError('Game is over! Click "New Game" to start a new game.');
     }
 });
 
@@ -351,15 +427,20 @@ async function makeAIMove() {
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
         const aiConfig = currentAISettings();
+        
+        // Ensure depth is a number, not a string
+        const depthValue = typeof aiConfig.depth === 'string' ? parseInt(aiConfig.depth, 10) : aiConfig.depth;
+        
         const requestData = {
             board: board,
             player: currentPlayer,
-            algorithm: aiConfig.algorithm,
-            depth: aiConfig.depth,
+            algorithm: String(aiConfig.algorithm).trim(), // Ensure it's a clean string
+            depth: depthValue,
             time_limit: 5.0
         };
         
         console.log('makeAIMove: Sending request to', `${API_URL}/move`, requestData);
+        console.log('makeAIMove: Algorithm value:', requestData.algorithm, 'Type:', typeof requestData.algorithm);
         
         const response = await fetch(`${API_URL}/move`, {
             method: 'POST',
@@ -397,23 +478,24 @@ async function makeAIMove() {
             const success = dropPiece(data.move);
             if (!success) {
                 console.error('makeAIMove: dropPiece returned false - column may be full or invalid');
+                showError('AI made an invalid move. Please start a new game.');
                 isProcessingMove = false;
                 updateUI();
             }
         } else {
             console.error('makeAIMove: AI returned invalid move:', data);
-            alert('AI could not determine a valid move. Please try again.');
+            showError('AI could not determine a valid move. Please try again.');
             isProcessingMove = false;
             updateUI();
         }
     } catch (error) {
         console.error('❌ Error getting AI move:', error);
         if (error.name === 'AbortError') {
-            alert('AI move request timed out after 30 seconds. The server may be taking too long. Try reducing the search depth.');
+            showError('AI move request timed out. Try reducing the search depth.');
         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            alert('Failed to connect to AI server. Make sure the Python server is running on port 5001.\n\nOpen the browser console (F12) for more details.');
+            showError('Failed to connect to AI server. Make sure the Python server is running on port 5001.');
         } else {
-            alert('Error getting AI move: ' + error.message + '\n\nOpen the browser console (F12) for more details.');
+            showError('Error getting AI move: ' + error.message);
         }
         isProcessingMove = false;
         updateUI(); // Reset UI state
@@ -431,7 +513,8 @@ async function recordGameEnd() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    winner: winner
+                    winner: winner,
+                    game_mode: gameMode  // Send game mode so server knows how to track stats
                 })
             });
         } catch (error) {
@@ -443,32 +526,52 @@ async function recordGameEnd() {
 // Get and display metrics
 async function updateMetrics() {
     try {
+        showLoading();
         const response = await fetch(`${API_URL}/metrics`);
         if (response.ok) {
             const data = await response.json();
             console.log('Game Metrics:', data);
             
-            // Display metrics in UI
+            // Display Human vs AI metrics
             document.getElementById('gamesPlayed').textContent = data.games_played || 0;
             document.getElementById('aiWins').textContent = data.ai_wins || 0;
             document.getElementById('humanWins').textContent = data.human_wins || 0;
             document.getElementById('draws').textContent = data.draws || 0;
             document.getElementById('winRate').textContent = 
-                (data.win_rate * 100).toFixed(1) + '%' || '0%';
+                ((data.win_rate || 0) * 100).toFixed(1) + '%';
+            
+            // Display AI vs AI metrics
+            document.getElementById('aiVsAiGamesPlayed').textContent = data.ai_vs_ai_games_played || 0;
+            document.getElementById('aiVsAiPlayer1Wins').textContent = data.ai_vs_ai_player1_wins || 0;
+            document.getElementById('aiVsAiPlayer2Wins').textContent = data.ai_vs_ai_player2_wins || 0;
+            document.getElementById('aiVsAiDraws').textContent = data.ai_vs_ai_draws || 0;
+            document.getElementById('aiVsAiPlayer1WinRate').textContent = 
+                ((data.ai_vs_ai_player1_win_rate || 0) * 100).toFixed(1) + '%';
+            document.getElementById('aiVsAiPlayer2WinRate').textContent = 
+                ((data.ai_vs_ai_player2_win_rate || 0) * 100).toFixed(1) + '%';
+            
+            // Display performance metrics
             document.getElementById('avgNodes').textContent = 
                 Math.round(data.average_nodes_expanded) || 0;
             document.getElementById('avgTime').textContent = 
-                data.average_decision_time.toFixed(3) || '0.000';
+                (data.average_decision_time || 0).toFixed(3) + 's';
             document.getElementById('avgPruned').textContent = 
                 Math.round(data.average_pruned_nodes) || 0;
             document.getElementById('totalMoves').textContent = data.total_moves || 0;
             
             // Show metrics panel
-            document.getElementById('metricsPanel').style.display = 'block';
+            const metricsPanel = document.getElementById('metricsPanel');
+            metricsPanel.classList.add('show');
+            
+            hideLoading();
+            showSuccess('Metrics loaded successfully!');
+        } else {
+            throw new Error('Failed to fetch metrics');
         }
     } catch (error) {
         console.error('Error fetching metrics:', error);
-        alert('Failed to fetch metrics. Make sure the Python server is running.');
+        hideLoading();
+        showError('Failed to fetch metrics. Make sure the Python server is running.');
     }
 }
 
@@ -483,7 +586,19 @@ document.getElementById('resetButton').addEventListener('click', () => {
 document.getElementById('gameMode').addEventListener('change', (e) => {
     gameMode = e.target.value;
     const aiVsAiBlock = document.getElementById('aiVsAiConfig');
-    aiVsAiBlock.style.display = gameMode === 'ai_vs_ai' ? 'block' : 'none';
+    const aiSettingsGroup = document.getElementById('aiSettingsGroup');
+    const aiDepthGroup = document.getElementById('aiDepthGroup');
+    
+    if (gameMode === 'ai_vs_ai') {
+        aiVsAiBlock.classList.add('show');
+        aiSettingsGroup.style.display = 'none';
+        aiDepthGroup.style.display = 'none';
+    } else {
+        aiVsAiBlock.classList.remove('show');
+        aiSettingsGroup.style.display = 'block';
+        aiDepthGroup.style.display = 'block';
+    }
+    
     initBoard();
 });
 
@@ -521,14 +636,68 @@ document.getElementById('metricsButton').addEventListener('click', () => {
 
 // Handle reset metrics button
 document.getElementById('resetMetricsButton').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to reset all statistics? This cannot be undone.')) {
+        return;
+    }
+    
     try {
+        showLoading();
         await fetch(`${API_URL}/metrics/reset`, { method: 'POST' });
         console.log('Metrics reset');
+        
+        // Update displayed metrics (reset all)
+        document.getElementById('gamesPlayed').textContent = '0';
+        document.getElementById('aiWins').textContent = '0';
+        document.getElementById('humanWins').textContent = '0';
+        document.getElementById('draws').textContent = '0';
+        document.getElementById('winRate').textContent = '0%';
+        document.getElementById('aiVsAiGamesPlayed').textContent = '0';
+        document.getElementById('aiVsAiPlayer1Wins').textContent = '0';
+        document.getElementById('aiVsAiPlayer2Wins').textContent = '0';
+        document.getElementById('aiVsAiDraws').textContent = '0';
+        document.getElementById('aiVsAiPlayer1WinRate').textContent = '0%';
+        document.getElementById('aiVsAiPlayer2WinRate').textContent = '0%';
+        document.getElementById('avgNodes').textContent = '0';
+        document.getElementById('avgTime').textContent = '0.000s';
+        document.getElementById('avgPruned').textContent = '0';
+        document.getElementById('totalMoves').textContent = '0';
+        
+        hideLoading();
+        showSuccess('Statistics reset successfully!');
     } catch (error) {
         console.error('Error resetting metrics:', error);
+        hideLoading();
+        showError('Failed to reset metrics. Make sure the Python server is running.');
     }
 });
 
-// Initialize game on load
-initBoard();
+// Initialize UI on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeGame);
+} else {
+    initializeGame();
+}
+
+function initializeGame() {
+    // Set initial visibility of AI settings
+    const gameModeSelect = document.getElementById('gameMode');
+    if (gameModeSelect) {
+        const currentMode = gameModeSelect.value;
+        if (currentMode === 'ai_vs_ai') {
+            document.getElementById('aiVsAiConfig').classList.add('show');
+            document.getElementById('aiSettingsGroup').style.display = 'none';
+            document.getElementById('aiDepthGroup').style.display = 'none';
+        }
+    }
+    
+    // Initialize game
+    initBoard();
+    
+    // Show welcome message
+    setTimeout(() => {
+        if (gameMode === 'human') {
+            showSuccess('Welcome! Click on a column to drop your piece.');
+        }
+    }, 500);
+}
 

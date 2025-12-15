@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect 4 AI - Play Against Intelligent AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .panel h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .game-info {
+            margin-bottom: 20px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .current-player {
+            padding: 12px 24px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .current-player.pulsing {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .player-red {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            color: white;
+        }
+
+        .player-yellow {
+            background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+            color: #333;
+        }
+
+        .thinking-indicator {
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        .thinking-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            margin: 0 2px;
+            animation: thinking 1.4s infinite;
+        }
+
+        .thinking-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .thinking-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes thinking {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        #gameCanvas {
+            border: 4px solid #333;
+            border-radius: 15px;
+            cursor: pointer;
+            display: block;
+            background-color: #1e3a8a;
+            transition: transform 0.2s;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        #gameCanvas:hover {
+            transform: scale(1.02);
+        }
+
+        .winner-message {
+            font-size: 1.8em;
+            margin-top: 15px;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-weight: bold;
+            animation: slideIn 0.5s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .winner-red {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            color: white;
+        }
+
+        .winner-yellow {
+            background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+            color: #333;
+        }
+
+        .winner-draw {
+            background: linear-gradient(135deg, #888 0%, #666 100%);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+
+        .form-group select,
+        .form-group input[type="text"],
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 10px 15px;
+            font-size: 1em;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            font-family: inherit;
+        }
+
+        .form-group select:hover,
+        .form-group select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            width: 100%;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .button-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .button-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .metrics-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            text-align: left;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .metrics-panel.show {
+            display: block;
+        }
+
+        .metrics-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+
+        .metric-item strong {
+            color: #333;
+        }
+
+        .metric-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .ai-vs-ai-config {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #667eea;
+        }
+
+        .ai-vs-ai-config.show {
+            display: block;
+        }
+
+        .ai-config-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ai-config-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .ai-config-row strong {
+            min-width: 100px;
+            color: #333;
+        }
+
+        .ai-config-row select {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85em;
+            font-weight: normal;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #ff4444;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #4caf50;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @media (max-width: 968px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                order: -1;
+            }
+        }
+
+        .help-text {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="main-container">
+        <!-- Game Area -->
+        <div class="game-container">
+            <h1>🔴 Connect 4 🟡</h1>
+            <p class="subtitle">Challenge the AI or play with a friend</p>
+            
+            <div class="game-info">
+                <div id="currentPlayer" class="current-player player-red">Player 1's Turn (Red)</div>
+                <div id="winnerMessage" class="winner-message" style="display: none;"></div>
+            </div>
+            
+            <canvas id="gameCanvas" width="700" height="600"></canvas>
+            
+            <div class="button-group" style="margin-top: 20px; width: 100%;">
+                <button id="resetButton" class="button-primary">🔄 New Game</button>
+                <button id="undoButton" class="button-secondary" style="display: none;">↩️ Undo</button>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Game Settings Panel -->
+            <div class="panel">
+                <h3>⚙️ Game Settings</h3>
+                
+                <div class="form-group">
+                    <label for="gameMode">Game Mode</label>
+                    <select id="gameMode">
+                        <option value="human">👥 Human vs Human</option>
+                        <option value="ai">🤖 Human vs AI</option>
+                        <option value="ai_vs_ai">🤖🤖 AI vs AI (Watch)</option>
+                    </select>
+                    <div class="help-text">Choose who will play</div>
+                </div>
+
+                <div class="form-group" id="aiSettingsGroup">
+                    <label for="aiAlgorithm">AI Algorithm</label>
+                    <select id="aiAlgorithm">
+                        <option value="minimax">Minimax (Basic)</option>
+                        <option value="minimax_ab" selected>Alpha-Beta Pruning ⚡</option>
+                        <option value="iterative">Iterative Deepening 🔄</option>
+                        <option value="random">Random (Easy) 🎲</option>
+                    </select>
+                    <div class="help-text">Different search strategies</div>
+                </div>
+
+                <div class="form-group" id="aiDepthGroup">
+                    <label for="aiDepth">AI Difficulty</label>
+                    <select id="aiDepth">
+                        <option value="3">🟢 Easy (Depth 3)</option>
+                        <option value="5" selected>🟡 Medium (Depth 5)</option>
+                        <option value="7">🟠 Hard (Depth 7)</option>
+                        <option value="9">🔴 Expert (Depth 9)</option>
+                    </select>
+                    <div class="help-text">Higher depth = stronger AI</div>
+                </div>
+
+                <div class="ai-vs-ai-config" id="aiVsAiConfig">
+                    <h4 style="margin-bottom: 10px; color: #667eea;">AI vs AI Configuration</h4>
+                    
+                    <div class="ai-config-row">
+                        <strong>🔴 Player 1:</strong>
+                        <select id="ai1Algorithm">
+                            <option value="minimax_ab" selected>Alpha-Beta</option>
+                            <option value="minimax">Minimax</option>
+                            <option value="iterative">Iterative</option>
+                        </select>
+                        <select id="ai1Depth">
+                            <option value="3">Depth 3</option>
+                            <option value="5" selected>Depth 5</option>
+                            <option value="7">Depth 7</option>
+                            <option value="9">Depth 9</option>
+                        </select>
+                    </div>
+                    
+                    <div class="ai-config-row">
+                        <strong>🟡 Player 2:</strong>
+                        <select id="ai2Algorithm">
+                            <option value="minimax_ab" selected>Alpha-Beta</option>
+                            <option value="minimax">Minimax</option>
+                            <option value="iterative">Iterative</option>
+                        </select>
+                        <select id="ai2Depth">
+                            <option value="3">Depth 3</option>
+                            <option value="5" selected>Depth 5</option>
+                            <option value="7">Depth 7</option>
+                            <option value="9">Depth 9</option>
+                        </select>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="randomStartCheckbox" checked>
+                        <label for="randomStartCheckbox">Randomize starting player</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Panel -->
+            <div class="panel">
+                <h3>📊 Statistics</h3>
+                
+                <button id="metricsButton" class="button-success">📈 View Metrics</button>
+                <button id="resetMetricsButton" class="button-secondary">🗑️ Reset Stats</button>
+                
+                <div id="errorMessage" class="error-message"></div>
+                <div id="successMessage" class="success-message"></div>
+                
+                <div id="metricsPanel" class="metrics-panel">
+                    <h3>Game Statistics</h3>
+                    
+                    <!-- Human vs AI Stats -->
+                    <h4 style="margin-top: 15px; margin-bottom: 10px; color: #667eea; font-size: 1em;">👤 Human vs AI</h4>
+                    <div class="metric-item">
+                        <strong>Games Played:</strong>
+                        <span class="metric-value" id="gamesPlayed">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>AI Wins:</strong>
+                        <span class="metric-value" id="aiWins">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Human Wins:</strong>
+                        <span class="metric-value" id="humanWins">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Draws:</strong>
+                        <span class="metric-value" id="draws">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>AI Win Rate:</strong>
+                        <span class="metric-value" id="winRate">0%</span>
+                    </div>
+                    
+                    <!-- AI vs AI Stats -->
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: #667eea; font-size: 1em;">🤖 AI vs AI</h4>
+                    <div class="metric-item">
+                        <strong>Games Played:</strong>
+                        <span class="metric-value" id="aiVsAiGamesPlayed">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>🔴 Player 1 Wins:</strong>
+                        <span class="metric-value" id="aiVsAiPlayer1Wins">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>🟡 Player 2 Wins:</strong>
+                        <span class="metric-value" id="aiVsAiPlayer2Wins">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Draws:</strong>
+                        <span class="metric-value" id="aiVsAiDraws">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Player 1 Win Rate:</strong>
+                        <span class="metric-value" id="aiVsAiPlayer1WinRate">0%</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Player 2 Win Rate:</strong>
+                        <span class="metric-value" id="aiVsAiPlayer2WinRate">0%</span>
+                    </div>
+                    
+                    <!-- Performance Metrics -->
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: #667eea; font-size: 1em;">⚡ Performance</h4>
+                    <div class="metric-item">
+                        <strong>Avg Nodes Expanded:</strong>
+                        <span class="metric-value" id="avgNodes">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Avg Decision Time:</strong>
+                        <span class="metric-value" id="avgTime">0.000s</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Avg Pruned Nodes:</strong>
+                        <span class="metric-value" id="avgPruned">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>Total Moves:</strong>
+                        <span class="metric-value" id="totalMoves">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions Panel -->
+            <div class="panel">
+                <h3>ℹ️ How to Play</h3>
+                <div style="font-size: 0.9em; color: #666; line-height: 1.6;">
+                    <p><strong>🎯 Goal:</strong> Connect 4 pieces in a row (horizontal, vertical, or diagonal)</p>
+                    <p><strong>🖱️ Click</strong> on any column to drop your piece</p>
+                    <p><strong>🔴 Red</strong> goes first</p>
+                    <p><strong>🟡 Yellow</strong> goes second</p>
+                    <p style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+                        <strong>💡 Tip:</strong> Control the center column for better chances!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
